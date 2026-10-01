@@ -65,6 +65,7 @@ float waterDepth = 0;
 bool thresholdReached = false;
 bool sensorValid = true;
 bool previousThresholdReached = false;
+unsigned long awdEventCount = 0;
 // ThingSpeak timing
 unsigned long lastThingSpeakUpdate = 0;
 const unsigned long THINGSPEAK_INTERVAL = 15000;
@@ -215,6 +216,9 @@ void sendToThingSpeak() {
   // 0 = SAFE
   url += "&field4=";
   url += String(thresholdReached ? 1 : 0);
+// field 5 = AWD Event Count
+  url += "&field5=";
+url += String(awdEventCount);
 
   Serial.println("Sending data to ThingSpeak...");
 
@@ -409,8 +413,11 @@ if (!sensorValid) {
   thresholdReached =
     (waterDepth <= AWD_THRESHOLD_CM);
 
-    if (thresholdReached && !previousThresholdReached) {
-    Serial.println("AWD EVENT: Threshold reached!");
+  if (thresholdReached && !previousThresholdReached) {
+  awdEventCount++;
+
+  Serial.print("AWD EVENT: Threshold reached! Event count = ");
+  Serial.println(awdEventCount);
 }
 
 if (!thresholdReached && previousThresholdReached) {
