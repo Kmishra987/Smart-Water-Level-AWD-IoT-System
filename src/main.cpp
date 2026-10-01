@@ -21,6 +21,7 @@
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define WIFI_SWITCH_PIN 27
+#define BUZZER_PIN 4
 
 // =====================
 // OLED
@@ -195,8 +196,39 @@ void handleRoot() {
 bool sendToThingSpeak();
 
 bool isNetworkAvailable() {
+
+
+  
   return (digitalRead(WIFI_SWITCH_PIN) == HIGH &&
           WiFi.status() == WL_CONNECTED);
+}
+void reconnectWiFi() {
+  if (digitalRead(WIFI_SWITCH_PIN) == HIGH &&
+      WiFi.status() != WL_CONNECTED) {
+
+    Serial.println("WiFi disconnected. Attempting to reconnect...");
+
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    unsigned long startAttemptTime = millis();
+
+    while (WiFi.status() != WL_CONNECTED &&
+           millis() - startAttemptTime < 5000) {
+      delay(500);
+      Serial.print(".");
+    }
+
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("WiFi reconnected!");
+      Serial.print("ESP32 IP address: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println("WiFi reconnection failed.");
+    }
+  }
 }
 
 void saveOfflineMeasurement() {
@@ -406,6 +438,8 @@ void setup() {
   pinMode(GREEN_LED, OUTPUT);
   pinMode(RED_LED, OUTPUT);
   pinMode(WIFI_SWITCH_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+digitalWrite(BUZZER_PIN, LOW);
 
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, LOW);
@@ -501,6 +535,15 @@ void setup() {
 // =====================
 void loop() {
 
+  // Simulate WiFi disconnection using Wokwi switch
+  if (digitalRead(WIFI_SWITCH_PIN) == LOW &&
+      WiFi.status() == WL_CONNECTED) {
+
+    WiFi.disconnect();
+    Serial.println("WiFi switch OFF - WiFi disconnected.");
+  }
+
+  reconnectWiFi();
   // =====================
   // READ SENSOR
   // =====================
@@ -546,6 +589,8 @@ if (!sensorValid) {
   Serial.print("AWD EVENT: Threshold reached! Event count = ");
   Serial.println(awdEventCount);
 }
+
+tone(BUZZER_PIN, 2000, 1000);
 
 if (!thresholdReached && previousThresholdReached) {
     Serial.println("AWD EVENT: Water level returned to SAFE.");

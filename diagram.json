@@ -45,6 +45,15 @@
     "bounce": "0"
   }
 },
+{
+  "type": "wokwi-buzzer",
+  "id": "buzzer",
+  "top": 100,
+  "left": 500,
+  "attrs": {
+    "volume": "0.5"
+  }
+},
     {
       "type": "wokwi-serial-monitor",
       "id": "serialMonitor",
@@ -57,6 +66,8 @@
         [ "wifiSwitch:2", "esp:27", "green", [] ],
     [ "wifiSwitch:1", "esp:GND.1", "black", [] ],
     [ "wifiSwitch:3", "esp:3V3", "red", [] ],
+    [ "buzzer:1", "esp:4", "green", [] ],
+[ "buzzer:2", "esp:GND.1", "black", [] ],
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
     [ "pot1:GND", "esp:GND.1", "black", [ "v9.6" ] ],
