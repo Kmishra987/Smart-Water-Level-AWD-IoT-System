@@ -64,7 +64,7 @@ float waterDepth = 0;
 
 bool thresholdReached = false;
 bool sensorValid = true;
-
+bool previousThresholdReached = false;
 // ThingSpeak timing
 unsigned long lastThingSpeakUpdate = 0;
 const unsigned long THINGSPEAK_INTERVAL = 15000;
@@ -408,6 +408,16 @@ if (!sensorValid) {
 
   thresholdReached =
     (waterDepth <= AWD_THRESHOLD_CM);
+
+    if (thresholdReached && !previousThresholdReached) {
+    Serial.println("AWD EVENT: Threshold reached!");
+}
+
+if (!thresholdReached && previousThresholdReached) {
+    Serial.println("AWD EVENT: Water level returned to SAFE.");
+}
+
+previousThresholdReached = thresholdReached;
 
   // =====================
   // LED CONTROL
