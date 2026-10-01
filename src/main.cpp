@@ -19,6 +19,7 @@
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
+#define WIFI_SWITCH_PIN 27
 
 // =====================
 // OLED
@@ -66,6 +67,20 @@ bool thresholdReached = false;
 bool sensorValid = true;
 bool previousThresholdReached = false;
 unsigned long awdEventCount = 0;
+
+struct Measurement {
+  float waterLevel;
+  float waterDepth;
+  int sensorValue;
+  bool awdStatus;
+  unsigned long eventCount;
+};
+
+
+#define MAX_OFFLINE_MEASUREMENTS 20
+
+Measurement offlineBuffer[MAX_OFFLINE_MEASUREMENTS];
+int offlineCount = 0;
 // ThingSpeak timing
 unsigned long lastThingSpeakUpdate = 0;
 const unsigned long THINGSPEAK_INTERVAL = 15000;
@@ -175,19 +190,105 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
-// =====================
-// SEND DATA TO THINGSPEAK
-// =====================
-void sendToThingSpeak() {
+void sendToThingSpeak();
 
-  if (WiFi.status() != WL_CONNECTED) {
+bool isNetworkAvailable() {
+  return (digitalRead(WIFI_SWITCH_PIN) == HIGH &&
+          WiFi.status() == WL_CONNECTED);
+}
 
-    Serial.println("WiFi disconnected!");
+void saveOfflineMeasurement() {
 
+  if (offlineCount < MAX_OFFLINE_MEASUREMENTS) {
+
+    offlineBuffer[offlineCount].waterLevel = waterLevel;
+    offlineBuffer[offlineCount].waterDepth = waterDepth;
+    offlineBuffer[offlineCount].sensorValue = sensorValue;
+    offlineBuffer[offlineCount].awdStatus = thresholdReached;
+    offlineBuffer[offlineCount].eventCount = awdEventCount;
+
+    offlineCount++;
+
+    Serial.print("Measurement saved offline. Buffer count = ");
+    Serial.println(offlineCount);
+
+  } else {
+
+    Serial.println("Offline buffer full! Measurement not saved.");
+  }
+}
+
+
+// upload offline measurements to ThingSpeak
+void uploadOfflineMeasurements() {
+
+  if (offlineCount == 0) {
     return;
   }
 
+  Serial.print("Uploading ");
+  Serial.print(offlineCount);
+  Serial.println(" offline measurements...");
+
+  for (int i = 0; i < offlineCount; i++) {
+
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi lost while uploading offline data.");
+      return;
+    }
+
+    // Save current values
+    int currentSensorValue = sensorValue;
+    float currentWaterLevel = waterLevel;
+    float currentWaterDepth = waterDepth;
+    bool currentThresholdReached = thresholdReached;
+    unsigned long currentEventCount = awdEventCount;
+
+    // Load stored measurement
+    sensorValue = offlineBuffer[i].sensorValue;
+    waterLevel = offlineBuffer[i].waterLevel;
+    waterDepth = offlineBuffer[i].waterDepth;
+    thresholdReached = offlineBuffer[i].awdStatus;
+    awdEventCount = offlineBuffer[i].eventCount;
+
+    Serial.print("Uploading offline measurement ");
+    Serial.print(i + 1);
+    Serial.print("/");
+    Serial.println(offlineCount);
+
+    sendToThingSpeak();
+
+    // Restore current values
+    sensorValue = currentSensorValue;
+    waterLevel = currentWaterLevel;
+    waterDepth = currentWaterDepth;
+    thresholdReached = currentThresholdReached;
+    awdEventCount = currentEventCount;
+
+    delay(15000);
+  }
+
+  offlineCount = 0;
+
+  Serial.println("Offline measurements uploaded successfully.");
+}
+
+void sendToThingSpeak() {
+
+ if (!isNetworkAvailable()) {
+  Serial.println("WiFi disconnected!");
+  saveOfflineMeasurement();
+  return;
+}
+
+// =====================
+// SEND DATA TO THINGSPEAK
+// =====================
+
+ 
+
   WiFiClientSecure client;
+  
 
   // Wokwi simulation:
   client.setInsecure();
@@ -285,6 +386,8 @@ void setup() {
 
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, LOW);
+
+  pinMode(WIFI_SWITCH_PIN, INPUT);
 
   // OLED
   Wire.begin(OLED_SDA, OLED_SCL);
@@ -547,13 +650,16 @@ previousThresholdReached = thresholdReached;
   // THINGSPEAK UPDATE
   // =====================
 
-  if (millis() - lastThingSpeakUpdate >=
-      THINGSPEAK_INTERVAL) {
+  if (millis() - lastThingSpeakUpdate >= THINGSPEAK_INTERVAL) {
 
-    sendToThingSpeak();
-
-    lastThingSpeakUpdate = millis();
+  if (isNetworkAvailable() && offlineCount > 0) {
+    uploadOfflineMeasurements();
   }
+
+  sendToThingSpeak();
+
+  lastThingSpeakUpdate = millis();
+}
 
   delay(100);
 }
