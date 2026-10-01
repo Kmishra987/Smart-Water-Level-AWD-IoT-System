@@ -63,6 +63,7 @@ float waterLevel = 0;
 float waterDepth = 0;
 
 bool thresholdReached = false;
+bool sensorValid = true;
 
 // ThingSpeak timing
 unsigned long lastThingSpeakUpdate = 0;
@@ -263,6 +264,10 @@ int readStableSensor() {
 
   return total / 10;
 }
+
+bool isValidSensorReading(int value) {
+  return (value >= 0 && value <= 4095);
+}
 // =====================
 // SETUP
 // =====================
@@ -371,6 +376,17 @@ void loop() {
   // =====================
 
   sensorValue = readStableSensor();
+
+
+// Validate sensor reading
+sensorValid = (sensorValue >= 0 && sensorValue <= 4095);
+
+if (!sensorValid) {
+  Serial.println("ERROR: Invalid sensor reading!");
+  delay(1000);
+  return;
+}
+
   // Convert ADC to percentage
 
   waterLevel =
