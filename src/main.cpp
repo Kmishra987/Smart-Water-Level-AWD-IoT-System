@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Preferences.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Wire.h>
@@ -64,6 +65,7 @@ float waterLevel = 0;
 float waterDepth = 0;
 
 bool thresholdReached = false;
+Preferences preferences;
 bool sensorValid = true;
 bool previousThresholdReached = false;
 unsigned long awdEventCount = 0;
@@ -190,7 +192,7 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
-void sendToThingSpeak();
+bool sendToThingSpeak();
 
 bool isNetworkAvailable() {
   return (digitalRead(WIFI_SWITCH_PIN) == HIGH &&
@@ -232,7 +234,7 @@ void uploadOfflineMeasurements() {
 
   for (int i = 0; i < offlineCount; i++) {
 
-    if (WiFi.status() != WL_CONNECTED) {
+    if (!isNetworkAvailable())  {
       Serial.println("WiFi lost while uploading offline data.");
       return;
     }
@@ -256,7 +258,12 @@ void uploadOfflineMeasurements() {
     Serial.print("/");
     Serial.println(offlineCount);
 
-    sendToThingSpeak();
+   bool uploadSuccess = sendToThingSpeak();
+
+if (!uploadSuccess) {
+  Serial.println("Offline measurement upload failed. Keeping remaining data.");
+  return;
+}
 
     // Restore current values
     sensorValue = currentSensorValue;
@@ -265,20 +272,28 @@ void uploadOfflineMeasurements() {
     thresholdReached = currentThresholdReached;
     awdEventCount = currentEventCount;
 
+    // Remove successfully uploaded measurement
+for (int j = i; j < offlineCount - 1; j++) {
+  offlineBuffer[j] = offlineBuffer[j + 1];
+}
+
+offlineCount--;
+i--;
+
     delay(15000);
   }
 
-  offlineCount = 0;
+  
 
   Serial.println("Offline measurements uploaded successfully.");
 }
 
-void sendToThingSpeak() {
+bool sendToThingSpeak() {
 
  if (!isNetworkAvailable()) {
   Serial.println("WiFi disconnected!");
   saveOfflineMeasurement();
-  return;
+  return false;
 }
 
 // =====================
@@ -340,23 +355,27 @@ url += String(awdEventCount);
       if (response != "0") {
 
         Serial.println("ThingSpeak update successful!");
-
+          return true;
       } else {
 
         Serial.println("ThingSpeak update failed!");
+        return false;
       }
 
     } else {
 
       Serial.print("HTTP request failed: ");
       Serial.println(http.errorToString(httpCode));
+      return false;
     }
 
     http.end();
+    return false;
 
   } else {
 
     Serial.println("Unable to connect to ThingSpeak");
+    return false;
   }
 }
 int readStableSensor() {
@@ -378,11 +397,15 @@ bool isValidSensorReading(int value) {
 // =====================
 void setup() {
 
+  preferences.begin("awd", false);
+  awdEventCount = preferences.getULong("eventCount", 0);
+
   Serial.begin(115200);
 
   // LEDs
   pinMode(GREEN_LED, OUTPUT);
   pinMode(RED_LED, OUTPUT);
+  pinMode(WIFI_SWITCH_PIN, INPUT);
 
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, LOW);
@@ -518,6 +541,7 @@ if (!sensorValid) {
 
   if (thresholdReached && !previousThresholdReached) {
   awdEventCount++;
+  preferences.putULong("eventCount", awdEventCount);
 
   Serial.print("AWD EVENT: Threshold reached! Event count = ");
   Serial.println(awdEventCount);
