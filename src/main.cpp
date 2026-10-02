@@ -582,21 +582,30 @@ if (!sensorValid) {
   thresholdReached =
     (waterDepth <= AWD_THRESHOLD_CM);
 
-  if (thresholdReached && !previousThresholdReached) {
+ // AWD event detection
+if (thresholdReached && !previousThresholdReached) {
+
   awdEventCount++;
   preferences.putULong("eventCount", awdEventCount);
 
   Serial.print("AWD EVENT: Threshold reached! Event count = ");
   Serial.println(awdEventCount);
+
+  // Sound buzzer ONCE when AWD is newly reached
+  tone(BUZZER_PIN, 2000, 1000);
 }
 
-tone(BUZZER_PIN, 2000, 1000);
+if (!thresholdReached) {
+  noTone(BUZZER_PIN);
+}
 
 if (!thresholdReached && previousThresholdReached) {
-    Serial.println("AWD EVENT: Water level returned to SAFE.");
+  Serial.println("AWD EVENT: Water level returned to SAFE.");
 }
 
-previousThresholdReached = thresholdReached;
+previousThresholdReached = thresholdReached; 
+
+
 
   // =====================
   // LED CONTROL
