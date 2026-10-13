@@ -20,6 +20,20 @@ The current implementation is a simulation-based prototype. Physical sensor cali
 - **Simulation-first development:** Enables testing of the firmware without initially requiring physical hardware.
 - **Extensible architecture:** Provides a foundation for integrating calibrated field sensors and more robust data logging.
 
+## 📸 Project Screenshots
+
+### 1. ESP32 Simulation on Wokwi
+
+The ESP32-based monitoring system can be simulated in Wokwi to test sensor readings, OLED output, and LED status indications.
+
+![ESP32 Smart Water Level Monitoring System](images/wokwi-simulation.png)
+
+### 2. ThingSpeak Cloud Dashboard
+
+ThingSpeak provides charts for visualizing the monitoring data uploaded by the ESP32.
+
+![ThingSpeak Water Level Monitoring Dashboard](images/thingspeak-dashboard.png)
+
 ## 🏗️ System Architecture
 
 ```text
